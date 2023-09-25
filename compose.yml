@@ -1,0 +1,49 @@
+version: '3.8'
+
+x-api: &api
+  build: .
+  volumes:
+    - .:/translator-api
+    - gems:/usr/local/bundle
+  environment: &env
+    POSTGRES_HOST: db
+  depends_on:
+    - db
+
+services:
+  db:
+    image: postgres:latest
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: translator_api
+      POSTGRES_PASSWORD: translator_api
+      POSTGRES_DB: translator_api_development,translator_api_test
+
+  development:
+    <<: *api
+    command: >
+      bash -c "rm -f tmp/pids/server.pid &&
+               bundle exec rails db:drop db:create db:schema:load db:seed &&
+               bundle exec rails server -b 0.0.0.0"
+    environment:
+      <<: *env
+      RAILS_ENV: development
+      DATABASE_URL: postgresql://translator_api:translator_api@db/translator_api_development
+    ports:
+      - "3000:3000"
+
+  test:
+    <<: *api
+    command: >
+      bash -c "rm -f tmp/pids/server.pid &&
+               bundle exec rails db:drop db:create db:schema:load &&
+               bundle exec rspec spec -fd"
+    environment:
+      <<: *env
+      DATABASE_URL: postgresql://translator_api:translator_api@db/translator_api_test
+      RAILS_ENV: test
+
+volumes:
+  pg-data:
+  gems:
